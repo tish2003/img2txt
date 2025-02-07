@@ -3,8 +3,11 @@ import pytesseract
 from PIL import Image
 import io
 import time
-# Set the Tesseract path (required for some cloud environments)
-pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
+
+
+# Set Tesseract Path (Only needed if it's not detected)
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
 # Set page layout
 st.set_page_config(page_title="Screenshot to Text Extractor", layout="centered")
 
