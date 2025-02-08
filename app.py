@@ -1,69 +1,54 @@
 import streamlit as st
 import pytesseract
 from PIL import Image
-import io
-import time
-# Set the Tesseract path (required for some cloud environments)
-pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
-# Set page layout
-st.set_page_config(page_title="Screenshot to Text Extractor", layout="centered")
+import os
+import json
 
-# Custom styling
-st.markdown("""
-    <style>
-        .big-title {font-size: 36px; text-align: center; color: #0047AB; font-weight: bold;}
-        .sub-title {font-size: 20px; text-align: center; color: #333;}
-        .uploaded-image {border-radius: 10px; margin-top: 20px;}
-        .download-button {margin-top: 10px;}
-        .loading-circle {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 50px;
-        }
-        .loading-circle:after {
-            content: "";
-            width: 40px;
-            height: 40px;
-            border: 5px solid #0047AB;
-            border-top: 5px solid #000;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-""", unsafe_allow_html=True)
+# Define database for storing notes
+NOTES_DB = "notes.json"
 
-# Page title
-st.markdown("<p class='big-title'>📸 Screenshot to Text Extractor</p>", unsafe_allow_html=True)
-st.markdown("<p class='sub-title'>Upload an image to extract text from it using OCR</p>", unsafe_allow_html=True)
+def load_notes():
+    if os.path.exists(NOTES_DB):
+        with open(NOTES_DB, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_notes(notes):
+    with open(NOTES_DB, "w") as f:
+        json.dump(notes, f, indent=4)
+
+# Load existing notes
+db = load_notes()
+
+# Streamlit UI
+st.title("📄 SnapOCR - Lecture Notes Organizer")
+st.write("Upload lecture notes and search them using OCR!")
 
 # File Upload
-uploaded_file = st.file_uploader("Upload an Image (PNG, JPG, JPEG)", type=["png", "jpg", "jpeg"])
+uploaded_file = st.file_uploader("Upload Lecture Notes (Image/PDF)", type=["png", "jpg", "jpeg", "pdf"])
 
-if uploaded_file is not None:
-    # Display Image
+def extract_text(image):
+    return pytesseract.image_to_string(image)
+
+if uploaded_file:
     image = Image.open(uploaded_file)
-    st.image(image, caption="Uploaded Image", use_column_width=True)
+    extracted_text = extract_text(image)
+    
+    note_id = str(len(db) + 1)
+    db[note_id] = extracted_text
+    save_notes(db)
+    
+    st.success("Text extracted and saved!")
+    st.text_area("Extracted Text", extracted_text, height=200)
 
-    # Extract text button
-    if st.button("Extract Text 📝"):
-        with st.container():
-            st.markdown("<div class='loading-circle'></div>", unsafe_allow_html=True)
-            time.sleep(2)  # Simulate processing time
-        
-        extracted_text = pytesseract.image_to_string(image)
-        
-        # Display extracted text
-        st.text_area("Extracted Text", extracted_text, height=200)
-        
-        # Save as text file
-        text_file = io.BytesIO()
-        text_file.write(extracted_text.encode())
-        text_file.seek(0)
-        st.download_button("Download Extracted Text 📥", text_file, file_name="extracted_text.txt", mime="text/plain")
-else:
-    st.info("Please upload an image to extract text.")
+# Search Feature
+st.subheader("🔍 Search Notes")
+query = st.text_input("Enter keyword to search notes:")
+if query:
+    results = {k: v for k, v in db.items() if query.lower() in v.lower()}
+    if results:
+        for note_id, content in results.items():
+            st.write(f"**Note {note_id}:**")
+            st.text_area("Snippet", content[:300])
+    else:
+        st.warning("No matching notes found!")
